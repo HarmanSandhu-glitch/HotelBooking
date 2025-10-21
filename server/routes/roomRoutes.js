@@ -11,6 +11,7 @@ import {
     toggleRoomAvailability,
     getRoomTypes
 } from "../controllers/RoomController.js";
+import upload from '../middleware/uploadMiddleware.js';
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ router.get('/hotel/:hotelId', getRoomsByHotel);
 router.get('/:id', getRoomById);
 
 // Protected hotel owner routes
-router.post('/', protect, isHotelOwner, addRoom);
+router.post('/', upload.array("images", 4), protect, isHotelOwner, addRoom);
 router.get('/owner/my-rooms', protect, isHotelOwner, getRoomsByOwner);
 router.put('/:id', protect, isHotelOwner, updateRoom);
 router.delete('/:id', protect, isHotelOwner, deleteRoom);

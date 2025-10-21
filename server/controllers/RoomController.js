@@ -99,7 +99,10 @@ export const getAllRooms = async (req, res) => {
         let rooms = await Room.find(filter)
             .populate({
                 path: 'hotel',
-                select: 'name address city contact owner'
+                populate:{
+                    path:"owner",
+                    select : "image"
+                }
             })
             .sort({ createdAt: -1 });
 
