@@ -1,0 +1,11 @@
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Remove default App.css styles that conflict with the design */
+#root {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
