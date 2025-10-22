@@ -17,6 +17,8 @@ createRoot(document.getElementById('root')).render(
     <ClerkProvider 
       publishableKey={PUBLISHABLE_KEY}
       afterSignOutUrl="/"
+      isSatellite={true}
+      domain="hotel-booking-frontend-three-weld.vercel.app"
     >
       <BrowserRouter>
         <App />
