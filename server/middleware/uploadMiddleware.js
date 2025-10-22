@@ -1,16 +1,8 @@
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
-// Configure Cloudinary storage for multer
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'hotel-booking',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-        transformation: [{ width: 1000, height: 1000, crop: 'limit' }]
-    }
-});
+// Use memory storage instead of CloudinaryStorage
+const storage = multer.memoryStorage();
 
 // Configure multer
 const upload = multer({
@@ -30,11 +22,77 @@ const upload = multer({
     }
 });
 
+// Helper function to upload to Cloudinary
+const uploadToCloudinary = (fileBuffer, folder = 'hotel-booking') => {
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            {
+                folder: folder,
+                resource_type: 'auto',
+                transformation: [{ width: 1000, height: 1000, crop: 'limit' }]
+            },
+            (error, result) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(result);
+                }
+            }
+        );
+        uploadStream.end(fileBuffer);
+    });
+};
+
 // Middleware for single image upload
-export const uploadSingle = upload.single('image');
+export const uploadSingle = (req, res, next) => {
+    upload.single('image')(req, res, async (err) => {
+        if (err) {
+            return handleUploadError(err, req, res, next);
+        }
+        
+        if (req.file) {
+            try {
+                const result = await uploadToCloudinary(req.file.buffer);
+                req.file.path = result.secure_url;
+                req.file.filename = result.public_id;
+            } catch (error) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error uploading image to Cloudinary: ' + error.message
+                });
+            }
+        }
+        next();
+    });
+};
 
 // Middleware for multiple images upload (up to 10)
-export const uploadMultiple = upload.array('images', 10);
+export const uploadMultiple = (req, res, next) => {
+    upload.array('images', 10)(req, res, async (err) => {
+        if (err) {
+            return handleUploadError(err, req, res, next);
+        }
+        
+        if (req.files && req.files.length > 0) {
+            try {
+                const uploadPromises = req.files.map(file => uploadToCloudinary(file.buffer));
+                const results = await Promise.all(uploadPromises);
+                
+                req.files = req.files.map((file, index) => ({
+                    ...file,
+                    path: results[index].secure_url,
+                    filename: results[index].public_id
+                }));
+            } catch (error) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error uploading images to Cloudinary: ' + error.message
+                });
+            }
+        }
+        next();
+    });
+};
 
 // Error handling middleware for multer
 export const handleUploadError = (err, req, res, next) => {
