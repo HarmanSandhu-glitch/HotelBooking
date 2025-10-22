@@ -29,6 +29,9 @@ app.use("/api/webhooks/clerk", clerkWebhooks);
 app.use(clerkMiddleware());
 
 // API Routes
+app.use("/", (req, res) => {
+    res.json({ success: true, message: "Server running fine." });
+})
 app.use("/api/users", userRouter);
 app.use("/api/hotels", hotelRouter);
 app.use("/api/rooms", roomRouter);
