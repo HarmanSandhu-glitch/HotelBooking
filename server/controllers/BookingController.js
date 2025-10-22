@@ -1,6 +1,7 @@
 import Booking from "../models/booking.js";
 import Room from "../models/Room.js";
 import Hotel from "../models/hotel.js";
+import transporter from "../config/nodeMailer.js";
 
 // Create a new booking
 export const createBooking = async (req, res) => {
@@ -93,6 +94,30 @@ export const createBooking = async (req, res) => {
             .populate('hotel', 'name address city contact')
             .populate('user', 'username email');
 
+        const mailOptions = {
+            from: process.env.SMTP_EMAIL || 'no-reply@hotelbooking.com',
+            to: populatedBooking.user.email,
+            subject: `Booking Confirmation — ${populatedBooking.hotel.name}`,
+            html: `
+            <p>Hi ${populatedBooking.user.username || 'Guest'},</p>
+            <p>Thank you for your booking at <strong>${populatedBooking.hotel.name}</strong>.</p>
+            <h4>Booking details</h4>
+            <ul>
+              <li><strong>Room:</strong> ${populatedBooking.room.roomType}</li>
+              <li><strong>Check-in:</strong> ${new Date(populatedBooking.checkInDate).toLocaleDateString()}</li>
+              <li><strong>Check-out:</strong> ${new Date(populatedBooking.checkOutDate).toLocaleDateString()}</li>
+              <li><strong>Guests:</strong> ${populatedBooking.guests}</li>
+              <li><strong>Total price:</strong> ${populatedBooking.totalPrice}</li>
+              <li><strong>Payment method:</strong> ${populatedBooking.paymentMethod}</li>
+              <li><strong>Booking status:</strong> ${populatedBooking.status}</li>
+            </ul>
+            <p>If you have any questions, contact the hotel at ${populatedBooking.hotel.contact || 'N/A'}.</p>
+            <p>Regards,<br/>${populatedBooking.hotel.name}</p>
+            `
+        }
+        await transporter.sendMail({
+
+        })
         res.status(201).json({
             success: true,
             message: "Booking created successfully",
