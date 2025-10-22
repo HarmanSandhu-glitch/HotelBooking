@@ -1,12 +1,33 @@
 import React from 'react'
 import { cities } from '../../assets/assets'
 
-function BasicInformation({ inputs, errors, onChange }) {
+function BasicInformation({ inputs, errors, onChange, hotels = [] }) {
     return (
         <div className='bg-white rounded-xl shadow-md p-6 mb-6'>
             <h2 className='text-xl font-bold text-gray-900 mb-6'>Basic Information</h2>
 
             <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                {/* Hotel Selection */}
+                <div className='md:col-span-2'>
+                    <label className='block text-sm font-semibold text-gray-700 mb-2'>
+                        Select Hotel <span className='text-red-500'>*</span>
+                    </label>
+                    <select
+                        name='hotel'
+                        value={inputs.hotel}
+                        onChange={onChange}
+                        className={`w-full px-4 py-3 border ${errors.hotel ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white`}
+                    >
+                        <option value=''>Select a hotel</option>
+                        {hotels.map((hotel) => (
+                            <option key={hotel._id} value={hotel._id}>
+                                {hotel.name} - {hotel.city}
+                            </option>
+                        ))}
+                    </select>
+                    {errors.hotel && <p className='text-red-500 text-xs mt-1'>{errors.hotel}</p>}
+                </div>
+                
                 {/* Room Type */}
                 <div>
                     <label className='block text-sm font-semibold text-gray-700 mb-2'>
@@ -89,25 +110,6 @@ function BasicInformation({ inputs, errors, onChange }) {
                         className={`w-full px-4 py-3 border ${errors.bathrooms ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     />
                     {errors.bathrooms && <p className='text-red-500 text-xs mt-1'>{errors.bathrooms}</p>}
-                </div>
-
-                {/* City */}
-                <div>
-                    <label className='block text-sm font-semibold text-gray-700 mb-2'>
-                        City <span className='text-red-500'>*</span>
-                    </label>
-                    <select
-                        name='city'
-                        value={inputs.city}
-                        onChange={onChange}
-                        className={`w-full px-4 py-3 border ${errors.city ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white`}
-                    >
-                        <option value=''>Select a city</option>
-                        {cities.map((city, index) => (
-                            <option key={index} value={city}>{city}</option>
-                        ))}
-                    </select>
-                    {errors.city && <p className='text-red-500 text-xs mt-1'>{errors.city}</p>}
                 </div>
             </div>
 

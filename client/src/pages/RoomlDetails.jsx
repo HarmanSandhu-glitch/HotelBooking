@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { roomsDummyData } from '../assets/assets'
 import ImageGallery from '../components/RoomDetails/ImageGallery'
@@ -8,13 +8,41 @@ import AboutRoom from '../components/RoomDetails/AboutRoom'
 import BookingCard from '../components/RoomDetails/BookingCard'
 import SimilarRooms from '../components/RoomDetails/SimilarRooms'
 import Footer from '../components/Footer'
+import { roomAPI } from '../services/api'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 function RoomDetails() {
     const { id } = useParams()
     const navigate = useNavigate()
+    const [room, setRoom] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
 
-    // Find the room by ID
-    const room = roomsDummyData.find(r => r._id === id)
+    useEffect(() => {
+        const fetchRoom = async () => {
+            try {
+                setLoading(true)
+                const response = await roomAPI.getById(id)
+                setRoom(response.data)
+            } catch (err) {
+                console.error('Error fetching room:', err)
+                setError(err.message || 'Failed to load room details')
+                // Fallback to dummy data
+                const fallbackRoom = roomsDummyData.find(r => r._id === id)
+                if (fallbackRoom) {
+                    setRoom(fallbackRoom)
+                }
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchRoom()
+    }, [id])
+
+    if (loading) {
+        return <LoadingSpinner fullScreen />
+    }
 
     // If room not found, show error
     if (!room) {
@@ -49,8 +77,8 @@ function RoomDetails() {
                     {/* Image Gallery */}
                     <div className='mb-12'>
                         <ImageGallery
-                            images={room.images}
-                            hotelName={room.hotel.name}
+                            images={room.images || []}
+                            hotelName={room.hotel?.name || 'Hotel'}
                         />
                     </div>
 
@@ -58,26 +86,27 @@ function RoomDetails() {
                     <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
                         {/* Left Column - Details */}
                         <div className='lg:col-span-2'>
-                            <AboutRoom />
-                            <AmenitiesSection amenities={room.amenities} />
+                            <AboutRoom 
+                                description={room.description}
+                                bedrooms={room.bedrooms}
+                                bathrooms={room.bathrooms}
+                                maxGuests={room.maxGuests}
+                            />
+                            <AmenitiesSection amenities={room.amenities || []} />
                         </div>
 
                         {/* Right Column - Booking Card */}
                         <div className='lg:col-span-1'>
                             <BookingCard
+                                roomId={room._id}
+                                hotelId={room.hotel?._id}
                                 pricePerNight={room.pricePerNight}
                                 isAvailable={room.isAvailable}
                             />
                         </div>
                     </div>
 
-                    {/* Similar Rooms */}
-                    <div className='mt-12'>
-                        <SimilarRooms
-                            currentRoomId={room._id}
-                            allRooms={roomsDummyData}
-                        />
-                    </div>
+                    {/* Similar Rooms - Optional: Fetch similar rooms from API */}
                 </div>
             </div>
         </div>

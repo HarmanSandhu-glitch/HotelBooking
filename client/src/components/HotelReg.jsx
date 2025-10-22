@@ -1,7 +1,11 @@
 import React, { useState } from 'react'
+import { useAuth } from '@clerk/clerk-react'
 import { cities } from '../assets/assets'
+import { hotelAPI } from '../services/api'
+import LoadingSpinner from './LoadingSpinner'
 
 function HotelReg({ onClose }) {
+    const { getToken } = useAuth()
     const [formData, setFormData] = useState({
         hotelName: '',
         phone: '',
@@ -10,6 +14,7 @@ function HotelReg({ onClose }) {
     })
 
     const [errors, setErrors] = useState({})
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -51,12 +56,30 @@ function HotelReg({ onClose }) {
         return Object.keys(newErrors).length === 0
     }
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault()
 
         if (validateForm()) {
-            console.log('Form submitted:', formData)
-            onClose && onClose()
+            setIsSubmitting(true)
+            try {
+                const token = await getToken()
+                const hotelData = {
+                    name: formData.hotelName,
+                    contact: formData.phone,
+                    address: formData.address,
+                    city: formData.city
+                }
+                
+                const response = await hotelAPI.register(token, hotelData)
+                console.log('Hotel registered successfully:', response)
+                alert('Hotel registered successfully!')
+                onClose && onClose()
+            } catch (error) {
+                console.error('Error registering hotel:', error)
+                alert(error.message || 'Failed to register hotel. Please try again.')
+            } finally {
+                setIsSubmitting(false)
+            }
         }
     }
 
@@ -219,15 +242,24 @@ function HotelReg({ onClose }) {
                             <button
                                 type='button'
                                 onClick={onClose}
-                                className='flex-1 px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors'
+                                disabled={isSubmitting}
+                                className='flex-1 px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
                             >
                                 Cancel
                             </button>
                             <button
                                 type='submit'
-                                className='flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl'
+                                disabled={isSubmitting}
+                                className='flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
                             >
-                                Register Hotel
+                                {isSubmitting ? (
+                                    <>
+                                        <LoadingSpinner size="sm" />
+                                        Registering...
+                                    </>
+                                ) : (
+                                    'Register Hotel'
+                                )}
                             </button>
                         </div>
                     </form>

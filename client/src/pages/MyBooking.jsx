@@ -1,11 +1,45 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { useAuth } from '@clerk/clerk-react'
 import BookingCard from '../components/MyBookings/BookingCard'
 import BookingsFilter from '../components/MyBookings/BookingsFilter'
 import EmptyBookings from '../components/MyBookings/EmptyBookings'
 import { userBookingsDummyData } from '../assets/assets'
+import { bookingAPI } from '../services/api'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 function MyBooking() {
+    const { getToken, isSignedIn } = useAuth()
     const [activeFilter, setActiveFilter] = useState('all')
+    const [bookings, setBookings] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
+
+    // Fetch user bookings
+    useEffect(() => {
+        const fetchBookings = async () => {
+            if (!isSignedIn) {
+                setLoading(false)
+                return
+            }
+
+            try {
+                setLoading(true)
+                setError(null)
+                const token = await getToken()
+                const response = await bookingAPI.getMyBookings(token)
+                setBookings(response.data || [])
+            } catch (err) {
+                console.error('Error fetching bookings:', err)
+                setError(err.message || 'Failed to load bookings')
+                // Fallback to dummy data
+                setBookings(userBookingsDummyData)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchBookings()
+    }, [getToken, isSignedIn])
 
     // Filter bookings based on active filter
     const filteredBookings = useMemo(() => {
@@ -13,39 +47,54 @@ function MyBooking() {
 
         switch (activeFilter) {
             case 'upcoming':
-                return userBookingsDummyData.filter(booking => {
+                return bookings.filter(booking => {
                     const checkInDate = new Date(booking.checkInDate)
                     return checkInDate > now && booking.status !== 'cancelled'
                 })
             case 'completed':
-                return userBookingsDummyData.filter(booking => {
+                return bookings.filter(booking => {
                     const checkOutDate = new Date(booking.checkOutDate)
                     return checkOutDate < now && booking.status !== 'cancelled'
                 })
             case 'cancelled':
-                return userBookingsDummyData.filter(booking => booking.status === 'cancelled')
+                return bookings.filter(booking => booking.status === 'cancelled')
             case 'all':
             default:
-                return userBookingsDummyData
+                return bookings
         }
-    }, [activeFilter])
+    }, [activeFilter, bookings])
 
     // Calculate counts for each filter
     const counts = useMemo(() => {
         const now = new Date()
         return {
-            all: userBookingsDummyData.length,
-            upcoming: userBookingsDummyData.filter(booking => {
+            all: bookings.length,
+            upcoming: bookings.filter(booking => {
                 const checkInDate = new Date(booking.checkInDate)
                 return checkInDate > now && booking.status !== 'cancelled'
             }).length,
-            completed: userBookingsDummyData.filter(booking => {
+            completed: bookings.filter(booking => {
                 const checkOutDate = new Date(booking.checkOutDate)
                 return checkOutDate < now && booking.status !== 'cancelled'
             }).length,
-            cancelled: userBookingsDummyData.filter(booking => booking.status === 'cancelled').length
+            cancelled: bookings.filter(booking => booking.status === 'cancelled').length
         }
-    }, [])
+    }, [bookings])
+
+    if (loading) {
+        return <LoadingSpinner fullScreen />
+    }
+
+    if (!isSignedIn) {
+        return (
+            <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
+                <div className='text-center'>
+                    <h2 className='text-2xl font-bold text-gray-900 mb-4'>Please Sign In</h2>
+                    <p className='text-gray-600'>You need to be signed in to view your bookings</p>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className='min-h-screen bg-gray-50 py-12 mt-20'>

@@ -1,11 +1,72 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import { useAuth } from '@clerk/clerk-react'
+import { bookingAPI, hotelAPI, roomAPI } from '../../services/api'
+import LoadingSpinner from '../../components/LoadingSpinner'
 
 function Dashboard() {
-    // Dummy stats data
-    const stats = [
+    const { getToken } = useAuth()
+    const [loading, setLoading] = useState(true)
+    const [stats, setStats] = useState({
+        totalRevenue: 0,
+        totalBookings: 0,
+        activeRooms: 0,
+        occupancyRate: 0
+    })
+    const [recentBookings, setRecentBookings] = useState([])
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                setLoading(true)
+                const token = await getToken()
+                
+                // Fetch owner's bookings
+                const bookingsResponse = await bookingAPI.getOwnerBookings(token)
+                const bookings = bookingsResponse.data || []
+                
+                // Fetch owner's rooms
+                const roomsResponse = await roomAPI.getMyRooms(token)
+                const rooms = roomsResponse.data || []
+                
+                // Calculate stats
+                const totalRevenue = bookings
+                    .filter(b => b.isPaid)
+                    .reduce((sum, b) => sum + (b.totalPrice || 0), 0)
+                
+                const activeRooms = rooms.filter(r => r.isAvailable).length
+                
+                const occupancyRate = rooms.length > 0 
+                    ? Math.round((bookings.filter(b => b.status === 'confirmed').length / rooms.length) * 100)
+                    : 0
+                
+                setStats({
+                    totalRevenue: `$${totalRevenue.toLocaleString()}`,
+                    totalBookings: bookings.length,
+                    activeRooms,
+                    occupancyRate: `${occupancyRate}%`
+                })
+                
+                // Set recent bookings (last 5)
+                setRecentBookings(bookings.slice(0, 5))
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchDashboardData()
+    }, [getToken])
+
+    if (loading) {
+        return <LoadingSpinner fullScreen />
+    }
+
+    // Stats configuration with dynamic data
+    const statsConfig = [
         {
             title: 'Total Revenue',
-            value: '$45,231',
+            value: stats.totalRevenue,
             change: '+12.5%',
             isPositive: true,
             icon: (
@@ -18,7 +79,7 @@ function Dashboard() {
         },
         {
             title: 'Total Bookings',
-            value: '1,423',
+            value: stats.totalBookings,
             change: '+8.2%',
             isPositive: true,
             icon: (
@@ -31,7 +92,7 @@ function Dashboard() {
         },
         {
             title: 'Active Rooms',
-            value: '28',
+            value: stats.activeRooms,
             change: '+3',
             isPositive: true,
             icon: (
@@ -44,7 +105,7 @@ function Dashboard() {
         },
         {
             title: 'Occupancy Rate',
-            value: '78%',
+            value: stats.occupancyRate,
             change: '-2.4%',
             isPositive: false,
             icon: (
@@ -57,15 +118,6 @@ function Dashboard() {
         }
     ]
 
-    // Recent bookings dummy data
-    const recentBookings = [
-        { id: 1, guestName: 'John Smith', room: 'Deluxe Suite', checkIn: '2025-10-25', status: 'Confirmed', amount: '$450' },
-        { id: 2, guestName: 'Emma Wilson', room: 'Ocean View', checkIn: '2025-10-26', status: 'Pending', amount: '$380' },
-        { id: 3, guestName: 'Michael Brown', room: 'Presidential Suite', checkIn: '2025-10-27', status: 'Confirmed', amount: '$850' },
-        { id: 4, guestName: 'Sarah Davis', room: 'Standard Room', checkIn: '2025-10-28', status: 'Confirmed', amount: '$220' },
-        { id: 5, guestName: 'James Taylor', room: 'Family Suite', checkIn: '2025-10-29', status: 'Pending', amount: '$520' }
-    ]
-
     return (
         <div className='p-8'>
             {/* Page Header */}
@@ -76,7 +128,7 @@ function Dashboard() {
 
             {/* Stats Grid */}
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
-                {stats.map((stat, index) => (
+                {statsConfig.map((stat, index) => (
                     <div key={index} className='bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow'>
                         <div className='flex items-center justify-between mb-4'>
                             <div className={`${stat.bgColor} ${stat.iconColor} p-3 rounded-lg`}>
@@ -114,23 +166,39 @@ function Dashboard() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {recentBookings.map((booking) => (
-                                    <tr key={booking.id} className='border-b border-gray-100 hover:bg-gray-50 transition-colors'>
-                                        <td className='py-4 px-4 text-sm text-gray-900 font-medium'>{booking.guestName}</td>
-                                        <td className='py-4 px-4 text-sm text-gray-600'>{booking.room}</td>
-                                        <td className='py-4 px-4 text-sm text-gray-600'>{booking.checkIn}</td>
+                                {recentBookings.length > 0 ? recentBookings.map((booking) => (
+                                    <tr key={booking._id} className='border-b border-gray-100 hover:bg-gray-50 transition-colors'>
+                                        <td className='py-4 px-4 text-sm text-gray-900 font-medium'>
+                                            {booking.user?.username || 'Guest'}
+                                        </td>
+                                        <td className='py-4 px-4 text-sm text-gray-600'>
+                                            {booking.room?.roomType || 'N/A'}
+                                        </td>
+                                        <td className='py-4 px-4 text-sm text-gray-600'>
+                                            {new Date(booking.checkInDate).toLocaleDateString()}
+                                        </td>
                                         <td className='py-4 px-4'>
                                             <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                                                booking.status === 'Confirmed' 
+                                                booking.status === 'confirmed' 
                                                     ? 'bg-green-100 text-green-700' 
+                                                    : booking.status === 'cancelled'
+                                                    ? 'bg-red-100 text-red-700'
                                                     : 'bg-yellow-100 text-yellow-700'
                                             }`}>
                                                 {booking.status}
                                             </span>
                                         </td>
-                                        <td className='py-4 px-4 text-sm font-semibold text-gray-900'>{booking.amount}</td>
+                                        <td className='py-4 px-4 text-sm font-semibold text-gray-900'>
+                                            ${booking.totalPrice}
+                                        </td>
                                     </tr>
-                                ))}
+                                )) : (
+                                    <tr>
+                                        <td colSpan="5" className="py-8 text-center text-gray-500">
+                                            No recent bookings
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
